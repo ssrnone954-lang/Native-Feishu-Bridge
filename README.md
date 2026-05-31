@@ -188,8 +188,6 @@ This project draws ideas from three excellent projects:
 - **Hermes** — Voice pipeline architecture (hot Whisper model + LLM polish, both in-process)
 - **OpenClaw** — Rich card formatting direction (mixed content in a single card)
 
-All code is written from scratch in Python. No code was copied from any of these projects.
-
 ## License
 
 MIT — see [LICENSE](LICENSE).
