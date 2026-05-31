@@ -1,16 +1,17 @@
 # Native Feishu Bridge
 
-A lightweight Python bridge that connects [Feishu/Lark](https://www.feishu.cn) messenger to [Claude Code](https://claude.ai/claude-code). Send text or voice messages in Feishu, get Claude-powered replies — with real-time progress, rich formatting, and built-in speech-to-text.
+[中文文档](./README.zh.md)
+
+A transparent Python bridge connecting [Feishu/Lark](https://www.feishu.cn) to [Claude Code](https://claude.ai/claude-code). Send text or voice messages in Feishu, get Claude-powered replies — with real-time progress, rich formatting, and built-in speech-to-text. ~1,150 lines of readable source — no framework, no compiled code.
 
 ## Features
 
 - **Text & Voice** — Send text or voice messages; voice is auto-transcribed (Whisper) and polished (DeepSeek)
-- **Real-time Progress** — Interactive card shows Claude's thinking → tool calls → replying
-- **Rich Formatting** — Structured replies get headings, tables, section dividers in a clean card layout
-- **Session Continuity** — Conversation history persists across bridge restarts
+- **Real-time Progress** — Interactive card shows Claude thinking → tool calls → replying (🧠→🔧→✍️)
+- **Structured Formatting** — Replies with tables or multiple headings auto-render as rich cards (blue header, section dividers, footer)
+- **Session Continuity** — Conversation history persists across bridge restarts (via `history.json` injection)
 - **Preemptive Replies** — New message interrupts old Claude run (no queue buildup)
 - **Debounced Batching** — Rapid-fire messages are merged (800ms window)
-- **Single Binary** — One Python process, no database, no Docker, no framework
 
 ## Prerequisites
 
@@ -20,15 +21,15 @@ A lightweight Python bridge that connects [Feishu/Lark](https://www.feishu.cn) m
 | **Claude Code CLI** | `npm install -g @anthropic-ai/claude-code` |
 | **Feishu App** (free) | Create at [open.feishu.cn](https://open.feishu.cn) — see below |
 | **DeepSeek API Key** (optional) | [platform.deepseek.com](https://platform.deepseek.com) — for voice polishing |
-| **macOS / Linux** | Windows works but launchd plist is macOS-only |
+| **macOS / Linux** | Windows works but launchd is macOS-only |
 
 ## Quick Start
 
 ### 1. Clone & Install
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/native-feishu-bridge.git
-cd native-feishu-bridge
+git clone https://github.com/ssrnone954-lang/Native-Feishu-Bridge.git
+cd Native-Feishu-Bridge
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ```
@@ -74,7 +75,7 @@ Send a message to your Feishu app — Claude should reply.
 
 ## Configuration Reference
 
-See [`config.yaml.example`](config.yaml.example) for every option with comments.
+See [`config.yaml.example`](config.yaml.example) for every option with Chinese comments.
 
 Key sections:
 
@@ -85,6 +86,23 @@ Key sections:
 | `voice` | No | Speech-to-text (Whisper) + polish (DeepSeek) |
 | `messages` | No | Debounce timing, reply format preference |
 | `paths` | No | Where to store sessions, logs, media |
+
+## Data Directories
+
+| Path | Default | Purpose |
+|---|---|---|
+| `paths.sessions_dir` | `~/native-bridge-sessions/` | Session IDs + conversation history |
+| `paths.logs_dir` | `~/native-bridge-logs/` | Runtime logs |
+| `messages.download_dir` | `~/native-bridge-media/` | Voice OGG files (temporary) |
+| `paths.pid_file` | `/tmp/native-feishu-bridge.pid` | Process PID file |
+
+These files are **never committed to Git** (excluded by `.gitignore`):
+
+| File | Purpose |
+|---|---|
+| `config.yaml` | Contains your real credentials |
+| `sessions/*.json` | Contains chat IDs and conversation content |
+| `logs/*.log` | Runtime logs |
 
 ## Architecture
 
@@ -119,17 +137,6 @@ sender.py          ← send reply as post (simple) or interactive card (structur
 | `session_manager.py` | ~85 | Session IDs + conversation history persistence |
 | `bin/fq` | ~140 | CLI: start/stop/restart/status/logs/test/load/unload |
 
-## Known Limitations
-
-| Issue | Cause | Workaround |
-|---|---|---|
-| Tables don't scroll on mobile | Feishu message API has no native table component | Keep tables narrow (≤3 columns) |
-| Card markdown lacks heading font-size hierarchy | Feishu card markdown renders `##` as bold, not as h2 | Use post mode for heading-heavy content |
-| Voice recognition accuracy varies for technical terms | Whisper `base` model (~140MB); `small` model is better but ~1.2GB | Switch to `small` model in config if accuracy matters |
-| Voice polish adds 5-10s latency | DeepSeek API round-trip (vs. local model) | Disable `voice.summarize.enabled` for faster turnaround |
-| Short voice clips (<2s) may fail transcription | Not enough audio data for Whisper | Speak for at least 3 seconds |
-| Bridge restart = cold first message | Claude `--resume` invalid after restart | `history.json` provides recent context; second message onward is warm |
-
 ## CLI Reference
 
 ```bash
@@ -143,10 +150,54 @@ fq load               # Install launchd plist (auto-start on login)
 fq unload             # Remove launchd plist
 ```
 
+## FAQ & Known Issues
+
+### Common Questions
+
+**Q: Bot doesn't reply to my messages?**
+A: Run `fq status` first. If stopped, `fq start`. If running, check `fq logs` for errors.
+
+**Q: Voice transcription failed?**
+A: Check: 1) Did you speak for at least 2 seconds? 2) Can you reach DeepSeek API? 3) To disable voice: set `voice.enabled: false` in config.yaml.
+
+**Q: How do I update?**
+A: `git pull` then `./bin/fq restart`.
+
+**Q: Can I run this on multiple machines?**
+A: No. Feishu allows only one WebSocket connection per App. Create separate apps for each machine.
+
+**Q: Does it work with Lark (international)?**
+A: Yes. Set `feishu.domain: "lark"` in config.yaml.
+
+### Known Limitations
+
+| Issue | Cause | Workaround |
+|---|---|---|
+| Tables don't scroll on mobile | Feishu message API has no native table component | Keep tables narrow (≤3 columns) |
+| Card markdown lacks heading font-size hierarchy | Feishu card markdown renders `##` as bold, not as h2 | Use post mode for heading-heavy content |
+| Voice recognition accuracy varies for technical terms | Whisper `base` model (~140MB); `small` is better but ~1.2GB | Switch to `small` model for better accuracy |
+| Voice polish adds 5-10s latency | DeepSeek API round-trip | Disable `voice.summarize.enabled` |
+| Short voice clips (<2s) may fail | Not enough audio data | Speak for at least 3 seconds |
+| Bridge restart = cold first message | Claude `--resume` invalid after restart | `history.json` provides context; second message onward is warm |
+
+## Differences from lark-channel-bridge
+
+| | lark-channel-bridge | Native Feishu Bridge |
+|---|---|---|
+| Language | TypeScript / Node.js | Python |
+| Install | One-line npm global install | git clone + manual config |
+| Voice | ❌ None | ✅ Built-in (Whisper + DeepSeek) |
+| Compilation | Compiled JS | No compilation — source is the product |
+| Framework | Node.js ecosystem | No framework |
+| Slash commands | ✅ 15+ | ❌ (personal use, not needed) |
+| Access control | ✅ Whitelist/blacklist | ❌ (personal use) |
+| Progress cards | Streaming cards | Streaming cards (🧠→🔧→✍️) |
+| Session persistence | `--resume` | `--resume` + history.json dual approach |
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
 
-## Credits
+---
 
-Built as a native alternative to the third-party `lark-channel-bridge` npm package. Architecture inspired by Hermes (voice pipeline, WebSocket stability) and OpenClaw (rich formatting direction). All code written from scratch in Python — no framework, no build step, fully transparent.
+Built with [Claude Code](https://claude.ai/claude-code).
