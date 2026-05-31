@@ -180,19 +180,15 @@ A: 支持。在 config.yaml 中将 `feishu.domain` 改为 `lark`。
 | 极短语音（<2 秒）可能转写失败 | 音频数据不足 | 至少说 3 秒 |
 | 桥重启后第一条消息是冷启动 | `--resume` 失效 | history.json 提供最近上下文，第二条起恢复正常 |
 
-## 与 lark-channel-bridge 的区别
+## 灵感来源
 
-| | lark-channel-bridge | Native Feishu Bridge |
-|---|---|---|
-| 语言 | TypeScript / Node.js | Python |
-| 安装 | npm 一行安装 | git clone + 手动配置 |
-| 语音 | ❌ 无 | ✅ 内置转写 + 润色 |
-| 编译 | 编译为 JS | 无编译，源码即所得 |
-| 框架 | Node.js 全家桶 | 无框架 |
-| 斜杠命令 | ✅ 15+ 条 | ❌（面向个人，不需要） |
-| 权限控制 | ✅ 白名单/黑名单 | ❌（个人使用） |
-| 进度卡片 | 流式卡片 | 流式卡片（🧠→🔧→✍️） |
-| 会话持久化 | `--resume` | `--resume` + history.json 双保险 |
+本项目借鉴了三个优秀项目的思路：
+
+- [lark-channel-bridge](https://github.com/zarazhangrui/feishu-claude-code-bridge) — WebSocket 连接模型、消息队列、去抖机制
+- **Hermes** — 语音管线架构（Whisper 模型常驻 + LLM 润色，均在桥进程内完成）
+- **OpenClaw** — 富文本卡片排版方向（混合内容在同一张卡片中呈现）
+
+所有代码均用 Python 从零编写，未复制上述任何项目的代码。
 
 ## 许可证
 

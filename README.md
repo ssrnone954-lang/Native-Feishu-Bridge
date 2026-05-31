@@ -180,19 +180,15 @@ A: Yes. Set `feishu.domain: "lark"` in config.yaml.
 | Short voice clips (<2s) may fail | Not enough audio data | Speak for at least 3 seconds |
 | Bridge restart = cold first message | Claude `--resume` invalid after restart | `history.json` provides context; second message onward is warm |
 
-## Differences from lark-channel-bridge
+## Inspiration
 
-| | lark-channel-bridge | Native Feishu Bridge |
-|---|---|---|
-| Language | TypeScript / Node.js | Python |
-| Install | One-line npm global install | git clone + manual config |
-| Voice | ❌ None | ✅ Built-in (Whisper + DeepSeek) |
-| Compilation | Compiled JS | No compilation — source is the product |
-| Framework | Node.js ecosystem | No framework |
-| Slash commands | ✅ 15+ | ❌ (personal use, not needed) |
-| Access control | ✅ Whitelist/blacklist | ❌ (personal use) |
-| Progress cards | Streaming cards | Streaming cards (🧠→🔧→✍️) |
-| Session persistence | `--resume` | `--resume` + history.json dual approach |
+This project draws ideas from three excellent projects:
+
+- [lark-channel-bridge](https://github.com/zarazhangrui/feishu-claude-code-bridge) — WebSocket connection model, message queue, debounce patterns
+- **Hermes** — Voice pipeline architecture (hot Whisper model + LLM polish, both in-process)
+- **OpenClaw** — Rich card formatting direction (mixed content in a single card)
+
+All code is written from scratch in Python. No code was copied from any of these projects.
 
 ## License
 
