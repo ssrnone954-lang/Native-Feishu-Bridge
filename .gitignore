@@ -1,0 +1,29 @@
+# Sensitive — never commit
+config.yaml
+
+# Session data (contains chat IDs, conversation content)
+sessions/
+*.json
+
+# Runtime logs
+logs/
+*.log
+
+# Downloaded media (voice files)
+media/
+native-bridge-media/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# macOS
+.DS_Store
+.Spotlight-V100
+.Trashes
+
+# IDE
+.vscode/
+.idea/

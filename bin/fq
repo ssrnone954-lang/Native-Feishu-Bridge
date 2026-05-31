@@ -1,0 +1,188 @@
+#!/usr/bin/env bash
+# fq — control the native Feishu bridge
+#
+# Usage:
+#   fq start       Start the bridge in background
+#   fq stop        Stop the bridge
+#   fq restart     Stop + start
+#   fq status      Show live status (sessions, history, process)
+#   fq logs        Tail the log
+#   fq test <msg>  One-shot test (text only)
+#   fq load        Load launchd plist (auto-start on login)
+#   fq unload      Unload launchd plist
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_DIR="$(dirname "$SCRIPT_DIR")"
+VENV_PYTHON="$APP_DIR/.venv/bin/python3"
+BRIDGE="$APP_DIR/bridge.py"
+CONFIG="$APP_DIR/config.yaml"
+PID_FILE="/tmp/native-feishu-bridge.pid"
+LOG_DIR="$APP_DIR/logs"
+OUT_LOG="$LOG_DIR/bridge.log"
+SESSIONS_DIR="$APP_DIR/sessions"
+PLIST="$HOME/Library/LaunchAgents/com.nagi.native-feishu-bridge.plist"
+
+_ensure_venv() {
+    if [ ! -x "$VENV_PYTHON" ]; then
+        echo "Error: venv not found at $VENV_PYTHON"
+        echo "Run: python3 -m venv $APP_DIR/.venv && $APP_DIR/.venv/bin/pip install -r requirements.txt"
+        exit 1
+    fi
+}
+
+_pid() {
+    if [ -f "$PID_FILE" ]; then
+        cat "$PID_FILE"
+    fi
+}
+
+_is_running() {
+    local pid; pid=$(_pid 2>/dev/null || true)
+    [ -n "${pid:-}" ] && kill -0 "$pid" 2>/dev/null
+}
+
+cmd_start() {
+    if _is_running; then
+        echo "Bridge is already running (pid=$(_pid))"
+        return 0
+    fi
+    _ensure_venv
+    mkdir -p "$LOG_DIR"
+    echo "Starting native Feishu bridge ..."
+    nohup "$VENV_PYTHON" "$BRIDGE" --config "$CONFIG" >> "$OUT_LOG" 2>&1 &
+    local pid=$!
+    sleep 2
+    if kill -0 "$pid" 2>/dev/null; then
+        echo "Started (pid=$pid)"
+    else
+        echo "Failed — check $OUT_LOG"
+        return 1
+    fi
+}
+
+cmd_stop() {
+    if ! _is_running; then
+        echo "Bridge is not running"
+        rm -f "$PID_FILE"
+        return 0
+    fi
+    local pid; pid=$(_pid)
+    echo "Stopping bridge (pid=$pid) ..."
+    kill "$pid" 2>/dev/null || true
+    for _ in $(seq 1 15); do
+        kill -0 "$pid" 2>/dev/null || { echo "Stopped"; rm -f "$PID_FILE"; return 0; }
+        sleep 0.5
+    done
+    kill -9 "$pid" 2>/dev/null || true
+    rm -f "$PID_FILE"
+    echo "Stopped (forced)"
+}
+
+cmd_restart() { cmd_stop; sleep 1; cmd_start; }
+
+cmd_status() {
+    echo "=== Native Feishu Bridge ==="
+    echo ""
+
+    # Process
+    if _is_running; then
+        echo "Process:  RUNNING (pid=$(_pid))"
+    else
+        echo "Process:  STOPPED"
+    fi
+
+    # Config
+    "$VENV_PYTHON" -c "
+import yaml
+with open('$CONFIG') as f:
+    c = yaml.safe_load(f)
+print(f\"App ID:   {c['feishu']['app_id']}\")
+print(f\"Voice:    {'enabled' if c.get('voice',{}).get('enabled') else 'disabled'}\")
+print(f\"Reply:    {c.get('messages',{}).get('reply_mode','post')}\")
+" 2>/dev/null || true
+
+    # Session / history stats
+    if [ -f "$SESSIONS_DIR/sessions.json" ]; then
+        local session_count
+        session_count=$("$VENV_PYTHON" -c "import json; d=json.load(open('$SESSIONS_DIR/sessions.json')); print(len(d))" 2>/dev/null || echo "?")
+        echo "Sessions: $session_count"
+    fi
+    if [ -f "$SESSIONS_DIR/history.json" ]; then
+        local chat_count msg_count
+        chat_count=$("$VENV_PYTHON" -c "
+import json
+h = json.load(open('$SESSIONS_DIR/history.json'))
+chats = len(h)
+msgs = sum(len(v) for v in h.values())
+print(f'{chats} chats, {msgs} msgs')
+" 2>/dev/null || echo "?")
+        echo "History:  $chat_count"
+    fi
+
+    # launchd
+    if [ -f "$PLIST" ]; then
+        if launchctl list com.nagi.native-feishu-bridge &>/dev/null; then
+            echo "launchd:  loaded (auto-start on login)"
+        else
+            echo "launchd:  not loaded"
+        fi
+    else
+        echo "launchd:  plist not installed"
+    fi
+
+    echo ""
+    if [ -f "$OUT_LOG" ]; then
+        echo "--- Last 5 log lines ---"
+        tail -5 "$OUT_LOG"
+    fi
+}
+
+cmd_logs() {
+    if [ -f "$OUT_LOG" ]; then
+        tail -f "$OUT_LOG"
+    else
+        echo "No log yet"
+    fi
+}
+
+cmd_test() {
+    _ensure_venv
+    local msg="${1:-Hello from fq test}"
+    echo "Testing with: $msg"
+    exec "$VENV_PYTHON" "$BRIDGE" --config "$CONFIG" --once "$msg"
+}
+
+cmd_load() {
+    if [ ! -f "$PLIST" ]; then
+        echo "Error: plist not found at $PLIST"
+        echo "Run: fq install-plist"
+        return 1
+    fi
+    launchctl load "$PLIST"
+    echo "Loaded — bridge will auto-start on login"
+    sleep 1
+    cmd_status
+}
+
+cmd_unload() {
+    launchctl unload "$PLIST" 2>/dev/null || true
+    echo "Unloaded — bridge will NOT auto-start"
+}
+
+case "${1:-}" in
+    start)    cmd_start ;;
+    stop)     cmd_stop ;;
+    restart)  cmd_restart ;;
+    status)   cmd_status ;;
+    logs)     cmd_logs ;;
+    test)     cmd_test "${2:-}" ;;
+    load)     cmd_load ;;
+    unload)   cmd_unload ;;
+    help|--help|-h)
+        sed -n '2,/^$/p' "$0" | sed 's/^# \?//' ;;
+    *)
+        echo "Usage: fq {start|stop|restart|status|logs|test <msg>|load|unload}"
+        exit 1 ;;
+esac

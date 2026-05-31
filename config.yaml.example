@@ -1,0 +1,80 @@
+# ============================================================
+# 飞书原生桥 — 配置文件
+# ============================================================
+# 使用说明：
+#   1. 复制此文件为 config.yaml：  cp config.yaml.example config.yaml
+#   2. 修改下面的占位符为你自己的值
+#   3. config.yaml 已在 .gitignore 中，不会被提交到 git
+# ============================================================
+
+# --- 飞书应用 ---
+feishu:
+  # ---- 必填 ----
+  # 前往 https://open.feishu.cn 创建自建应用，获取以下凭证
+  app_id: "cli_xxxxxxxxxxxx"           # 飞书应用 App ID
+  app_secret: "YOUR_APP_SECRET"        # 飞书应用 App Secret
+
+  # ---- 可选 ----
+  # domain: 飞书用 "feishu"，Lark（国际版）用 "lark"
+  domain: "feishu"
+
+  # WebSocket 长连接自动重连（默认开启）
+  # connection_mode: "websocket"
+
+# --- Claude CLI ---
+claude:
+  # ---- 必填 ----
+  # Claude Code 命令行工具的路径
+  # 安装方式: npm install -g @anthropic-ai/claude-code
+  # 如果 claude 已在 PATH 中，可以直接写 "claude"
+  binary: "claude"
+
+  # ---- 可选 ----
+  # Claude 进程的工作目录（默认当前用户 home）
+  cwd: "~"
+
+  # 最多同时处理几个对话（默认 2）
+  max_concurrent: 2
+
+  # 空闲多久自动结束会话（分钟，默认 10）
+  idle_timeout_minutes: 10
+
+# --- 语音（可选，不需要可关闭）---
+voice:
+  # 设为 false 可关闭语音转写功能
+  enabled: true
+
+  # STT 转写（本地模型，首次运行自动下载 ~140MB）
+  whisper:
+    model: "base"               # tiny / base / small / medium（越大越准越慢）
+    language: "zh"              # 主要语言（留空则自动检测）
+    device: "cpu"               # cpu 或 cuda（有 NVIDIA 显卡可用 cuda）
+    compute_type: "int8"        # int8 适合 CPU，float16 适合 GPU
+
+  # LLM 润色（必填，如果 voice.enabled = true）
+  summarize:
+    enabled: true
+    # 前往 https://platform.deepseek.com 注册并创建 API Key
+    # 新用户通常有免费额度
+    model: "deepseek-chat"              # deepseek-chat 或 deepseek-reasoner
+    api_key: "YOUR_DEEPSEEK_API_KEY"    # 替换为你的 DeepSeek API Key
+    base_url: "https://api.deepseek.com/v1"
+
+# --- 消息 ---
+messages:
+  # 快速连续发消息时，多少毫秒内的消息合并为一条（默认 800）
+  debounce_ms: 800
+
+  # 回复格式偏好（可随时改，不影响功能）
+  #   post  — 飞书富文本（推荐，标题层级 + 代码块 + 列表）
+  #   text  — 纯文本（最简方案）
+  reply_mode: "post"
+
+  # 语音/图片等媒体文件的下载目录
+  download_dir: "~/native-bridge-media"
+
+# --- 路径 ---
+paths:
+  sessions_dir: "~/native-bridge-sessions"     # 会话数据存放目录
+  logs_dir: "~/native-bridge-logs"             # 日志目录
+  pid_file: "/tmp/native-feishu-bridge.pid"    # 进程 PID 文件
