@@ -185,7 +185,7 @@ A: 支持。在 config.yaml 中将 `feishu.domain` 改为 `lark`。
 本项目借鉴了三个优秀项目的思路：
 
 - [lark-channel-bridge](https://github.com/zarazhangrui/feishu-claude-code-bridge) — WebSocket 连接模型、消息队列、去抖机制
-- **Hermes** — 语音管线架构（Whisper 模型常驻 + LLM 润色，均在桥进程内完成）
+- **Hermes** — 网关架构、会话管理、每聊独立进程隔离
 - **OpenClaw** — 富文本卡片排版方向（混合内容在同一张卡片中呈现）
 
 ## 许可证

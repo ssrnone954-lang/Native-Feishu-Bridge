@@ -185,7 +185,7 @@ A: Yes. Set `feishu.domain: "lark"` in config.yaml.
 This project draws ideas from three excellent projects:
 
 - [lark-channel-bridge](https://github.com/zarazhangrui/feishu-claude-code-bridge) — WebSocket connection model, message queue, debounce patterns
-- **Hermes** — Voice pipeline architecture (hot Whisper model + LLM polish, both in-process)
+- **Hermes** — Gateway architecture, session management, per-chat process isolation
 - **OpenClaw** — Rich card formatting direction (mixed content in a single card)
 
 ## License
